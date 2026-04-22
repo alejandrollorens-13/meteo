@@ -1,0 +1,110 @@
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap");
+
+:root {
+  --meteo-bg-top: #07203f;
+  --meteo-bg-bottom: #104a78;
+  --meteo-accent: #1da2ff;
+  --meteo-accent-dark: #0d7ed0;
+  --meteo-text: #eaf4ff;
+  --meteo-muted: #b8d4ef;
+  --meteo-card-bg: rgba(255, 255, 255, 0.88);
+  --meteo-shadow: 0 20px 45px rgba(5, 23, 45, 0.25);
+}
+
+body.meteo-body {
+  min-height: 100vh;
+  font-family: "Sora", sans-serif;
+  color: var(--meteo-text);
+  background:
+    radial-gradient(circle at 10% 20%, rgba(29, 162, 255, 0.35) 0%, rgba(29, 162, 255, 0) 40%),
+    radial-gradient(circle at 85% 10%, rgba(255, 220, 140, 0.2) 0%, rgba(255, 220, 140, 0) 35%),
+    linear-gradient(155deg, var(--meteo-bg-top) 0%, var(--meteo-bg-bottom) 100%);
+}
+
+body.meteo-body a {
+  color: var(--meteo-text);
+  text-decoration: none;
+}
+
+.meteo-nav {
+  background: rgba(8, 30, 56, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--meteo-shadow);
+}
+
+.meteo-hero {
+  color: #ffffff;
+  background:
+    linear-gradient(120deg, rgba(12, 88, 146, 0.9), rgba(29, 162, 255, 0.8)),
+    url("https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80")
+      center/cover no-repeat;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: var(--meteo-shadow);
+}
+
+.meteo-sidepanel {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--meteo-shadow);
+}
+
+.meteo-sidepanel .btn {
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #ffffff;
+}
+
+.meteo-sidepanel .btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.meteo-card {
+  background: var(--meteo-card-bg);
+  box-shadow: var(--meteo-shadow);
+}
+
+.meteo-card .card-body {
+  color: #0b2b4a;
+}
+
+.btn-primary {
+  background-color: var(--meteo-accent);
+  border-color: var(--meteo-accent);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--meteo-accent-dark);
+  border-color: var(--meteo-accent-dark);
+}
+
+.form-control:focus {
+  border-color: rgba(29, 162, 255, 0.75);
+  box-shadow: 0 0 0 0.25rem rgba(29, 162, 255, 0.22);
+}
+
+.meteo-results article {
+  border-radius: 1rem;
+  padding: 1.25rem;
+  background: #f6fbff;
+  border: 1px solid rgba(18, 104, 168, 0.15);
+}
+
+#error-container {
+  margin-bottom: 0;
+}
+
+#error-container:not(:empty) {
+  display: block !important;
+}
+
+@media (max-width: 768px) {
+  .meteo-hero {
+    background-position: 60% center;
+  }
+
+  .display-5 {
+    font-size: 2rem;
+  }
+}

@@ -4,7 +4,7 @@ from urllib.parse import quote_plus
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CurrentWeather(BaseModel):
@@ -13,11 +13,18 @@ class CurrentWeather(BaseModel):
     wind_speed: float
 
 
+class WeatherAlert(BaseModel):
+    level: str
+    title: str
+    message: str
+
+
 class WeatherResponse(BaseModel):
     success: bool
     location: dict[str, Any]
     current_weather: CurrentWeather
     forecast: list[dict[str, Any]]
+    alerts: list[WeatherAlert] = Field(default_factory=list)
 
 
 def map_weather_code_to_condition(weather_code: int | None) -> str:
@@ -36,13 +43,83 @@ def map_weather_code_to_condition(weather_code: int | None) -> str:
     return "Condición desconocida"
 
 
+def build_weather_alerts(current_weather: CurrentWeather, forecast: list[dict[str, Any]]) -> list[WeatherAlert]:
+    alerts: list[WeatherAlert] = []
+    weather_codes = {item.get("weather_code") for item in forecast if item.get("weather_code") is not None}
+    temperatures = [item.get("temperature") for item in forecast if item.get("temperature") is not None]
+
+    if any(code in {95, 96, 99} for code in weather_codes):
+        alerts.append(
+            WeatherAlert(
+                level="high",
+                title="Riesgo de tormenta",
+                message="Se esperan condiciones tormentosas en las próximas horas.",
+            )
+        )
+
+    if any(code in {71, 73, 75} for code in weather_codes):
+        alerts.append(
+            WeatherAlert(
+                level="medium",
+                title="Posible nevada",
+                message="Hay probabilidad de nieve en el periodo de previsión.",
+            )
+        )
+
+    if current_weather.wind_speed >= 40:
+        alerts.append(
+            WeatherAlert(
+                level="medium",
+                title="Viento fuerte",
+                message="Se registran rachas de viento elevadas. Toma precauciones.",
+            )
+        )
+
+    if temperatures and max(temperatures) >= 35:
+        alerts.append(
+            WeatherAlert(
+                level="medium",
+                title="Temperatura alta",
+                message="Se prevén temperaturas altas durante las próximas horas.",
+            )
+        )
+
+    if temperatures and min(temperatures) <= 0:
+        alerts.append(
+            WeatherAlert(
+                level="medium",
+                title="Temperaturas bajo cero",
+                message="Existe riesgo de heladas por temperaturas bajo cero.",
+            )
+        )
+
+    return alerts
+
+
+def find_current_hour_index(hourly_times: list[str], current_time: str) -> int:
+    """Encuentra el índice de la hora actual en los datos horarios.
+    
+    Dado que current_time es "2026-04-22T14:30" y hourly_times son
+    ["2026-04-22T00:00", "2026-04-22T01:00", ...],
+    busca el índice que corresponde a la hora actual (ej: índice 14 para las 14:00).
+    """
+    try:
+        current_hour_key = current_time[:13]  # "2026-04-22T14"
+        for idx, hourly_time in enumerate(hourly_times):
+            if hourly_time.startswith(current_hour_key):
+                return idx
+    except (IndexError, AttributeError):
+        pass
+    return 0  # Fallback si no encuentra coincidencia
+
+
 async def fetch_open_meteo_weather(lat: float, lon: float) -> WeatherResponse:
     params = {
         "latitude": lat,
         "longitude": lon,
         "current": "temperature_2m,weather_code,wind_speed_10m",
         "hourly": "temperature_2m,weather_code",
-        "forecast_days": 7,
+        "forecast_days": 2,
         "timezone": "auto",
     }
 
@@ -59,17 +136,25 @@ async def fetch_open_meteo_weather(lat: float, lon: float) -> WeatherResponse:
     current_payload = payload.get("current", {})
     hourly_payload = payload.get("hourly", {})
 
-    hourly_times = hourly_payload.get("time", [])[:24]
-    hourly_temperatures = hourly_payload.get("temperature_2m", [])[:24]
-    hourly_weather_codes = hourly_payload.get("weather_code", [])[:24]
+    all_hourly_times = hourly_payload.get("time", [])
+    all_hourly_temperatures = hourly_payload.get("temperature_2m", [])
+    all_hourly_weather_codes = hourly_payload.get("weather_code", [])
+
+    current_time = current_payload.get("time", "")
+    start_hour_index = find_current_hour_index(all_hourly_times, current_time)
+    end_hour_index = min(start_hour_index + 24, len(all_hourly_times))
+
+    hourly_times = all_hourly_times[start_hour_index:end_hour_index]
+    hourly_temperatures = all_hourly_temperatures[start_hour_index:end_hour_index]
+    hourly_weather_codes = all_hourly_weather_codes[start_hour_index:end_hour_index]
 
     forecast = []
     for index, item_time in enumerate(hourly_times):
         forecast.append(
             {
                 "time": item_time,
-                "temperature": hourly_temperatures[index] if index < len(hourly_temperatures) else None,
-                "weather_code": hourly_weather_codes[index] if index < len(hourly_weather_codes) else None,
+                "temperature": hourly_temperatures[index] if index < len(hourly_temperatures) else "-",
+                "weather_code": hourly_weather_codes[index] if index < len(hourly_weather_codes) else "-",
             }
         )
 
@@ -78,6 +163,8 @@ async def fetch_open_meteo_weather(lat: float, lon: float) -> WeatherResponse:
         condition=map_weather_code_to_condition(current_payload.get("weather_code")),
         wind_speed=float(current_payload.get("wind_speed_10m", 0.0)),
     )
+
+    alerts = build_weather_alerts(current_weather, forecast)
 
     return WeatherResponse(
         success=True,
@@ -89,6 +176,7 @@ async def fetch_open_meteo_weather(lat: float, lon: float) -> WeatherResponse:
         },
         current_weather=current_weather,
         forecast=forecast,
+        alerts=alerts,
     )
 
 
